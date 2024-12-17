@@ -35,18 +35,18 @@ const Navbar: React.FC = () => {
         </div>
 
         {/* Mobile Menu Button */}
-        <button
+            <button
           onClick={toggleMobileMenu}
           className="md:hidden p-2 rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-        >
+            >
           {isMobileMenuOpen ? <AiOutlineClose size={24} /> : <AiOutlineMenu size={24} />}
-        </button>
-      </div>
+            </button>
+          </div>
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="md:hidden bg-gray-700">
-          <Link
+              <Link 
             to="/"
             onClick={toggleMobileMenu}
             className="block px-4 py-2 hover:bg-gray-600"
@@ -55,8 +55,8 @@ const Navbar: React.FC = () => {
               <FiHome size={20} />
               <span>Home</span>
             </div>
-          </Link>
-          <Link
+              </Link>
+              <Link 
             to="/editor"
             onClick={toggleMobileMenu}
             className="block px-4 py-2 hover:bg-gray-600"
@@ -65,8 +65,8 @@ const Navbar: React.FC = () => {
               <FiCode size={20} />
               <span>Editor</span>
             </div>
-          </Link>
-          <Link
+              </Link>
+              <Link 
             to="/draw"
             onClick={toggleMobileMenu}
             className="block px-4 py-2 hover:bg-gray-600"
@@ -75,7 +75,7 @@ const Navbar: React.FC = () => {
               <FiEdit size={20} />
               <span>Draw</span>
             </div>
-          </Link>
+              </Link>
         </div>
       )}
     </nav>
