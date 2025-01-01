@@ -1,49 +1,118 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import MonacoEditor from "@monaco-editor/react";
-import { Code, Play, Loader2 } from 'lucide-react';
+import { Code, Play, Loader2, Users } from 'lucide-react';
+import io from 'socket.io-client';
+import { v4 as uuidv4 } from 'uuid';
 
-// Mock LanguageSelector since it's not provided (you'll replace with your actual component)
-const LanguageSelector = ({ 
-  language, 
-  onLanguageChange 
-}: { 
-  language: string, 
-  onLanguageChange: (lang: string) => void 
-}) => {
-  const languages = [
-    'javascript', 'typescript', 'python', 'java', 
-    'cpp', 'rust', 'go', 'ruby'
-  ];
+// Define user and cursor types
+interface User {
+  id: string;
+  name: string;
+  color: string;
+}
 
-  return (
-    <div className="flex items-center space-x-2">
-      <Code className="text-indigo-400" />
-      <select 
-        value={language}
-        onChange={(e) => onLanguageChange(e.target.value)}
-        className="bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:ring-2 focus:ring-indigo-500 transition-all duration-300 hover:border-indigo-500"
-      >
-        {languages.map(lang => (
-          <option key={lang} value={lang}>
-            {lang.charAt(0).toUpperCase() + lang.slice(1)}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-};
+interface Cursor {
+  user: User;
+  position: {
+    lineNumber: number;
+    column: number;
+  };
+}
 
 const Editor: React.FC = () => {
   const [language, setLanguage] = useState<string>("javascript");
   const [editorValue, setEditorValue] = useState<string>("");
   const [output, setOutput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [socket, setSocket] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<User>({
+    id: uuidv4(),
+    name: `User_${Math.floor(Math.random() * 1000)}`,
+    color: `hsl(${Math.random() * 360}, 70%, 60%)`
+  });
+  const [collaborators, setCollaborators] = useState<User[]>([]);
+  const [remoteCursors, setRemoteCursors] = useState<Cursor[]>([]);
   const editorRef = useRef<any>(null);
+
+  // Initialize Socket Connection
+  useEffect(() => {
+    const newSocket = io('http://localhost:4000', {
+      query: { 
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userColor: currentUser.color
+      }
+    });
+
+    setSocket(newSocket);
+
+    // Handle incoming collaborator updates
+    newSocket.on('collaborators', (users: User[]) => {
+      setCollaborators(users.filter(u => u.id !== currentUser.id));
+    });
+
+    // Handle remote cursor updates
+    newSocket.on('cursor-change', (cursor: Cursor) => {
+      if (cursor.user.id !== currentUser.id) {
+        setRemoteCursors(prev => {
+          const existingIndex = prev.findIndex(c => c.user.id === cursor.user.id);
+          if (existingIndex !== -1) {
+            const updated = [...prev];
+            updated[existingIndex] = cursor;
+            return updated;
+          }
+          return [...prev, cursor];
+        });
+      }
+    });
+
+    // Handle code changes from other users
+    newSocket.on('code-change', (data: { code: string, language: string }) => {
+      if (editorRef.current) {
+        const model = editorRef.current.getModel();
+        model.setValue(data.code);
+        setEditorValue(data.code);
+        
+        if (data.language !== language) {
+          setLanguage(data.language);
+        }
+      }
+    });
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [currentUser]);
 
   const handleLanguageChange = (newLanguage: string) => {
     setLanguage(newLanguage);
-    setEditorValue("");
-    setOutput("");
+    socket?.emit('language-change', { 
+      language: newLanguage,
+      userId: currentUser.id 
+    });
+  };
+
+  const handleEditorChange = (value: string | undefined) => {
+    const newValue = value || "";
+    setEditorValue(newValue);
+    
+    // Emit changes to other collaborators
+    socket?.emit('code-change', { 
+      code: newValue, 
+      language,
+      userId: currentUser.id 
+    });
+  };
+
+  const handleCursorChange = () => {
+    const editor = editorRef.current;
+    if (editor) {
+      const position = editor.getPosition();
+      socket?.emit('cursor-change', {
+        user: currentUser,
+        position
+      });
+    }
   };
 
   const handleRunCode = async () => {
@@ -77,15 +146,44 @@ const Editor: React.FC = () => {
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <Code className="text-indigo-400 w-6 h-6" />
-            <h1 className="text-xl font-bold text-white">Code Playground</h1>
+            <h1 className="text-xl font-bold text-white">Collaborative Code Playground</h1>
           </div>
           
-          <LanguageSelector 
-            language={language} 
-            onLanguageChange={handleLanguageChange} 
-          />
+          {/* Language Selector */}
+          <div className="flex items-center space-x-2">
+            <select 
+              value={language}
+              onChange={(e) => handleLanguageChange(e.target.value)}
+              className="bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:ring-2 focus:ring-indigo-500"
+            >
+              {['javascript', 'typescript', 'python', 'java', 'cpp', 'rust', 'go', 'ruby'].map(lang => (
+                <option key={lang} value={lang}>
+                  {lang.charAt(0).toUpperCase() + lang.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Collaborators */}
+          <div className="flex items-center space-x-2">
+            <Users className="text-indigo-400" />
+            <div className="flex">
+              {collaborators.map(user => (
+                <div 
+                  key={user.id} 
+                  className="w-8 h-8 rounded-full border-2 -ml-2 first:ml-0"
+                  style={{ 
+                    backgroundColor: user.color,
+                    borderColor: user.color 
+                  }}
+                  title={user.name}
+                />
+              ))}
+            </div>
+          </div>
         </div>
 
+        {/* Run Code Button */}
         <button 
           onClick={handleRunCode}
           disabled={isLoading}
@@ -114,12 +212,15 @@ const Editor: React.FC = () => {
           <MonacoEditor
             onMount={(editor) => {
               editorRef.current = editor;
+              
+              // Add event listeners for cursor tracking
+              editor.onDidChangeCursorPosition(handleCursorChange);
             }}
             height="80vh"
             language={language}
             theme="vs-dark"
             value={editorValue}
-            onChange={(value) => setEditorValue(value || "")}
+            onChange={handleEditorChange}
             options={{
               selectOnLineNumbers: true,
               minimap: { enabled: false },
