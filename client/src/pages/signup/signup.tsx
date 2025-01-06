@@ -1,4 +1,32 @@
+import React, {useState} from "react";
+import axios from "axios";
+
 const SignUp = () => {
+
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+
+  const handleSubmit = async (e) =>{
+    e.preventDefault();
+    // sending post request
+    try{
+      const response = await axios.post('http://127.0.0.1:8000/users/signup/', {
+        username: username,
+        email: email,
+        password: password
+      });
+      setMessage(response.data.msg || 'Account created successfully');
+  }catch(error:any ) {
+    // Error handling
+    setMessage(
+      error.response?.data?.detail || "Something went wrong, please try again."
+    );
+  }
+
+}
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-black text-text animate-gradient">
       <div className="bg-card p-8 rounded-lg shadow-lg max-w-md w-full transform transition duration-300 hover:scale-105">
