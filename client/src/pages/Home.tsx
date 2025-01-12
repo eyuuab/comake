@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Code, Paintbrush, Users, Zap } from 'lucide-react';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '../store/store';
+import {setUser, setToken,  logout } from '../store/slices/authSlice';
 
 const Home = () => {
+  const dispatch = useDispatch();
+  
+  // Access authentication state from Redux store
+  const { user, token } = useSelector((state: RootState) => state.auth);
+
   const [activeTab, setActiveTab] = useState('code');
   const [displayedCode, setDisplayedCode] = useState('');
   const [currentLine, setCurrentLine] = useState(0);
@@ -63,6 +71,18 @@ const Home = () => {
     }
   ];
 
+  const handleLogin = () => {
+    // Example login action, replace with actual logic
+    const fakeUser = { name: 'John Doe' };
+    const fakeToken = 'some-fake-token';
+    dispatch(setUser(fakeUser));
+    dispatch(setToken(fakeToken));
+  };
+
+  const handleLogout = () => {
+    dispatch(logout());
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
       {/* Hero Section */}
@@ -76,9 +96,21 @@ const Home = () => {
               Experience the future of collaborative coding with our powerful real-time editor and drawing board.
             </p>
             <div className="flex space-x-4">
-              <button className="px-8 py-4 bg-gradient-to-r from-gray-500 to-gray-600 opacity-90 rounded-lg font-bold hover:opacity-60 transition">
-                Get Started
-              </button>
+              {user ? (
+                <button
+                  onClick={handleLogout}
+                  className="px-8 py-4 bg-gradient-to-r from-gray-500 to-gray-600 opacity-90 rounded-lg font-bold hover:opacity-60 transition"
+                >
+                  Log Out
+                </button>
+              ) : (
+                <button
+                  onClick={handleLogin}
+                  className="px-8 py-4 bg-gradient-to-r from-gray-500 to-gray-600 opacity-90 rounded-lg font-bold hover:opacity-60 transition"
+                >
+                  Log In
+                </button>
+              )}
               <button className="px-8 py-4 bg-transparent border-2 border-gray-500 rounded-lg font-bold hover:bg-purple-500/10 transition">
                 Learn More
               </button>
